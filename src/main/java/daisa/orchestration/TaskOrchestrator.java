@@ -16,6 +16,9 @@ import java.nio.file.Path;
 import java.util.Objects;
 
 public final class TaskOrchestrator {
+    private static final String TASKS_ARTIFACT_NAME = "DAISA Tasks.md";
+    private static final String SUMMARIES_ARTIFACT_NAME = "DAISA Summaries.md";
+
     private final AgentSupervisor supervisor;
     private final AiRouter aiRouter;
     private final StudyArtifactWriter artifactWriter;
@@ -39,6 +42,9 @@ public final class TaskOrchestrator {
 
     public void onMarkdownChanged(Path path) {
         try {
+            if (isGeneratedArtifact(path)) {
+                return;
+            }
             MarkdownNote note = markdownParser.parse(path, new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
             handleNote(note);
         } catch (IOException failure) {
@@ -47,6 +53,9 @@ public final class TaskOrchestrator {
     }
 
     public void handleNote(MarkdownNote note) {
+        if (isGeneratedArtifact(note.path())) {
+            return;
+        }
         supervisor.restartUnhealthyAgents();
 
         if (!note.todos().isEmpty()) {
@@ -72,5 +81,9 @@ public final class TaskOrchestrator {
             artifactWriter.writeSummary(note, response);
         }
     }
-}
 
+    private static boolean isGeneratedArtifact(Path path) {
+        String fileName = path.getFileName().toString();
+        return TASKS_ARTIFACT_NAME.equals(fileName) || SUMMARIES_ARTIFACT_NAME.equals(fileName);
+    }
+}
