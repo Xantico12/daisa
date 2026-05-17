@@ -80,7 +80,9 @@ public final class VaultWatcher implements Closeable {
         }
     }
 
-    private boolean shouldHandle(Path path) {
+    // Package-private so VaultWatcherTest can exercise the debounce window
+    // without spinning up a real WatchService (which polls every 10s on macOS).
+    boolean shouldHandle(Path path) {
         Instant now = Instant.now();
         Instant previous = recentlyHandled.get(path);
         if (previous != null && Duration.between(previous, now).compareTo(DEBOUNCE_WINDOW) < 0) {
