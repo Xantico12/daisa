@@ -12,6 +12,10 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 
+// StudyArtifactWriter is now path-agnostic: the orchestrator passes the
+// target file in per call (per-course paths after M6). These tests cover
+// the writer's behaviour — idempotent upsert, per-source sectioning,
+// stale-section removal — using arbitrary target paths inside a tempdir.
 public final class StudyArtifactWriterTest {
     private StudyArtifactWriterTest() {
     }
@@ -26,10 +30,11 @@ public final class StudyArtifactWriterTest {
 
     private static void runFirstWriteCreatesArtifacts() throws Exception {
         Path vault = Files.createTempDirectory("daisa-vault-test");
+        Path tasksFile = vault.resolve("Tasks.md");
+        Path summariesFile = vault.resolve("Summaries.md");
         Path notePath = vault.resolve("lecture.md");
         MarkdownNote note = new MarkdownNote(
-                notePath,
-                "Lecture",
+                notePath, "Lecture",
                 Collections.singletonList("Lecture"),
                 Collections.singletonList("exam"),
                 Arrays.asList(
@@ -40,11 +45,11 @@ public final class StudyArtifactWriterTest {
         );
 
         StudyArtifactWriter writer = new StudyArtifactWriter(vault);
-        writer.writeTodos(note);
-        writer.writeSummary(note, new AiResponse(AiEngineType.LOCAL, "Short summary"));
+        writer.writeTodos(tasksFile, note);
+        writer.writeSummary(summariesFile, note, new AiResponse(AiEngineType.LOCAL, "Short summary"));
 
-        String tasks = readArtifact(vault, "DAISA Tasks.md");
-        String summaries = readArtifact(vault, "DAISA Summaries.md");
+        String tasks = read(tasksFile);
+        String summaries = read(summariesFile);
 
         TestSupport.assertTrue(tasks.contains("- [ ] Read chapter 4"), "Expected open todo in task artifact");
         TestSupport.assertTrue(!tasks.contains("Done item"), "Completed todos should not be copied");
@@ -54,28 +59,17 @@ public final class StudyArtifactWriterTest {
 
     private static void runTodosRewriteReplacesPreviousSection() throws Exception {
         Path vault = Files.createTempDirectory("daisa-vault-test");
+        Path tasksFile = vault.resolve("Tasks.md");
         Path notePath = vault.resolve("lecture.md");
 
-        MarkdownNote first = new MarkdownNote(
-                notePath, "Lecture",
-                Collections.singletonList("Lecture"),
-                Collections.emptyList(),
-                Collections.singletonList(new TodoItem("Read chapter 4", 3, false)),
-                "# Lecture"
-        );
-        MarkdownNote second = new MarkdownNote(
-                notePath, "Lecture",
-                Collections.singletonList("Lecture"),
-                Collections.emptyList(),
-                Collections.singletonList(new TodoItem("Read chapter 5", 3, false)),
-                "# Lecture"
-        );
+        MarkdownNote first = noteWithTodo(notePath, "Lecture", "Read chapter 4");
+        MarkdownNote second = noteWithTodo(notePath, "Lecture", "Read chapter 5");
 
         StudyArtifactWriter writer = new StudyArtifactWriter(vault);
-        writer.writeTodos(first);
-        writer.writeTodos(second);
+        writer.writeTodos(tasksFile, first);
+        writer.writeTodos(tasksFile, second);
 
-        String tasks = readArtifact(vault, "DAISA Tasks.md");
+        String tasks = read(tasksFile);
         TestSupport.assertTrue(tasks.contains("Read chapter 5"), "Latest todo should be present");
         TestSupport.assertTrue(!tasks.contains("Read chapter 4"), "Stale todo from previous write should be gone");
         TestSupport.assertTrue(countOccurrences(tasks, "## Lecture") == 1,
@@ -84,40 +78,19 @@ public final class StudyArtifactWriterTest {
 
     private static void runTodosForDifferentSourcesCoexist() throws Exception {
         Path vault = Files.createTempDirectory("daisa-vault-test");
-
-        MarkdownNote noteA = new MarkdownNote(
-                vault.resolve("a.md"), "Note A",
-                Collections.singletonList("Note A"),
-                Collections.emptyList(),
-                Collections.singletonList(new TodoItem("Task A", 1, false)),
-                "# Note A"
-        );
-        MarkdownNote noteB = new MarkdownNote(
-                vault.resolve("b.md"), "Note B",
-                Collections.singletonList("Note B"),
-                Collections.emptyList(),
-                Collections.singletonList(new TodoItem("Task B", 1, false)),
-                "# Note B"
-        );
+        Path tasksFile = vault.resolve("Tasks.md");
 
         StudyArtifactWriter writer = new StudyArtifactWriter(vault);
-        writer.writeTodos(noteA);
-        writer.writeTodos(noteB);
+        writer.writeTodos(tasksFile, noteWithTodo(vault.resolve("a.md"), "Note A", "Task A"));
+        writer.writeTodos(tasksFile, noteWithTodo(vault.resolve("b.md"), "Note B", "Task B"));
 
-        String tasks = readArtifact(vault, "DAISA Tasks.md");
+        String tasks = read(tasksFile);
         TestSupport.assertTrue(tasks.contains("Task A") && tasks.contains("Task B"),
                 "Both sources should have sections after their first writes");
 
-        MarkdownNote noteAv2 = new MarkdownNote(
-                vault.resolve("a.md"), "Note A",
-                Collections.singletonList("Note A"),
-                Collections.emptyList(),
-                Collections.singletonList(new TodoItem("Task A2", 1, false)),
-                "# Note A"
-        );
-        writer.writeTodos(noteAv2);
+        writer.writeTodos(tasksFile, noteWithTodo(vault.resolve("a.md"), "Note A", "Task A2"));
 
-        tasks = readArtifact(vault, "DAISA Tasks.md");
+        tasks = read(tasksFile);
         TestSupport.assertTrue(tasks.contains("Task A2"), "Rewritten section should appear");
         TestSupport.assertTrue(!tasks.contains("Task A "), "Old Task A wording should be gone");
         TestSupport.assertTrue(tasks.contains("Task B"), "Untouched source should still be present");
@@ -127,6 +100,7 @@ public final class StudyArtifactWriterTest {
 
     private static void runSummaryRewriteReplacesPreviousSection() throws Exception {
         Path vault = Files.createTempDirectory("daisa-vault-test");
+        Path summariesFile = vault.resolve("Summaries.md");
         Path notePath = vault.resolve("lecture.md");
         MarkdownNote note = new MarkdownNote(
                 notePath, "Lecture",
@@ -137,10 +111,10 @@ public final class StudyArtifactWriterTest {
         );
 
         StudyArtifactWriter writer = new StudyArtifactWriter(vault);
-        writer.writeSummary(note, new AiResponse(AiEngineType.LOCAL, "First summary"));
-        writer.writeSummary(note, new AiResponse(AiEngineType.LOCAL, "Second summary"));
+        writer.writeSummary(summariesFile, note, new AiResponse(AiEngineType.LOCAL, "First summary"));
+        writer.writeSummary(summariesFile, note, new AiResponse(AiEngineType.LOCAL, "Second summary"));
 
-        String summaries = readArtifact(vault, "DAISA Summaries.md");
+        String summaries = read(summariesFile);
         TestSupport.assertTrue(summaries.contains("Second summary"), "Latest summary should be present");
         TestSupport.assertTrue(!summaries.contains("First summary"), "Stale summary should be gone");
         TestSupport.assertTrue(countOccurrences(summaries, "- Source: [[lecture]]") == 1,
@@ -149,27 +123,13 @@ public final class StudyArtifactWriterTest {
 
     private static void runEmptyTodosRemovesStaleSection() throws Exception {
         Path vault = Files.createTempDirectory("daisa-vault-test");
+        Path tasksFile = vault.resolve("Tasks.md");
         Path aPath = vault.resolve("a.md");
         Path bPath = vault.resolve("b.md");
 
-        MarkdownNote noteA = new MarkdownNote(
-                aPath, "Note A",
-                Collections.singletonList("Note A"),
-                Collections.emptyList(),
-                Collections.singletonList(new TodoItem("Task A", 1, false)),
-                "# Note A"
-        );
-        MarkdownNote noteB = new MarkdownNote(
-                bPath, "Note B",
-                Collections.singletonList("Note B"),
-                Collections.emptyList(),
-                Collections.singletonList(new TodoItem("Task B", 1, false)),
-                "# Note B"
-        );
-
         StudyArtifactWriter writer = new StudyArtifactWriter(vault);
-        writer.writeTodos(noteA);
-        writer.writeTodos(noteB);
+        writer.writeTodos(tasksFile, noteWithTodo(aPath, "Note A", "Task A"));
+        writer.writeTodos(tasksFile, noteWithTodo(bPath, "Note B", "Task B"));
 
         // Note A's task gets completed: writer is called again with no open todos.
         MarkdownNote noteAdone = new MarkdownNote(
@@ -179,9 +139,9 @@ public final class StudyArtifactWriterTest {
                 Collections.singletonList(new TodoItem("Task A", 1, true)),
                 "# Note A"
         );
-        writer.writeTodos(noteAdone);
+        writer.writeTodos(tasksFile, noteAdone);
 
-        String tasks = readArtifact(vault, "DAISA Tasks.md");
+        String tasks = read(tasksFile);
         TestSupport.assertTrue(!tasks.contains("Task A"), "Stale section for completed source should be removed");
         TestSupport.assertTrue(tasks.contains("Task B"), "Other sources should be untouched");
         TestSupport.assertTrue(countOccurrences(tasks, "- Source: [[a]]") == 0, "No section for a.md should remain");
@@ -189,6 +149,7 @@ public final class StudyArtifactWriterTest {
 
         // Also covers the no-todos-at-all case: empty todos list, no prior section, no file created.
         Path freshVault = Files.createTempDirectory("daisa-vault-test");
+        Path freshTasks = freshVault.resolve("Tasks.md");
         MarkdownNote emptyNote = new MarkdownNote(
                 freshVault.resolve("empty.md"), "Empty",
                 Collections.singletonList("Empty"),
@@ -196,13 +157,23 @@ public final class StudyArtifactWriterTest {
                 Collections.emptyList(),
                 "# Empty"
         );
-        new StudyArtifactWriter(freshVault).writeTodos(emptyNote);
-        TestSupport.assertTrue(!Files.exists(freshVault.resolve("DAISA Tasks.md")),
+        new StudyArtifactWriter(freshVault).writeTodos(freshTasks, emptyNote);
+        TestSupport.assertTrue(!Files.exists(freshTasks),
                 "Artifact must not be created when there's nothing to remove");
     }
 
-    private static String readArtifact(Path vault, String name) throws Exception {
-        return new String(Files.readAllBytes(vault.resolve(name)), StandardCharsets.UTF_8);
+    private static MarkdownNote noteWithTodo(Path notePath, String title, String todoText) {
+        return new MarkdownNote(
+                notePath, title,
+                Collections.singletonList(title),
+                Collections.emptyList(),
+                Collections.singletonList(new TodoItem(todoText, 3, false)),
+                "# " + title
+        );
+    }
+
+    private static String read(Path path) throws Exception {
+        return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }
 
     private static int countOccurrences(String haystack, String needle) {
