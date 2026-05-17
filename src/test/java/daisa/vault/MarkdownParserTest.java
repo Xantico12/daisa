@@ -29,6 +29,68 @@ public final class MarkdownParserTest {
         TestSupport.assertEquals(4, note.todos().get(0).lineNumber());
         TestSupport.assertEquals(false, note.todos().get(0).complete());
         TestSupport.assertEquals(true, note.todos().get(1).complete());
+
+        frontmatterFlowStyleTagsAreExtracted();
+        frontmatterBlockStyleTagsAreExtracted();
+        frontmatterDoesNotPolluteHeadingsOrShiftTodoLineNumbers();
+        frontmatterAndInlineTagsBothLand();
+        unclosedFrontmatterIsTreatedAsBody();
+    }
+
+    private static void frontmatterFlowStyleTagsAreExtracted() {
+        String content = "---\n"
+                + "tags: [exam, oop, \"foo-bar\"]\n"
+                + "---\n"
+                + "# Polymorphism\n";
+        MarkdownNote note = new MarkdownParser().parse(Paths.get("n.md"), content);
+        TestSupport.assertTrue(note.hasTag("exam"), "flow-style exam tag");
+        TestSupport.assertTrue(note.hasTag("oop"), "flow-style oop tag");
+        TestSupport.assertTrue(note.hasTag("foo-bar"), "quoted flow-style tag");
+    }
+
+    private static void frontmatterBlockStyleTagsAreExtracted() {
+        String content = "---\n"
+                + "title: Lecture\n"
+                + "tags:\n"
+                + "  - exam\n"
+                + "  - 'oop'\n"
+                + "---\n"
+                + "# Body\n";
+        MarkdownNote note = new MarkdownParser().parse(Paths.get("n.md"), content);
+        TestSupport.assertTrue(note.hasTag("exam"), "block-style exam tag");
+        TestSupport.assertTrue(note.hasTag("oop"), "block-style quoted oop tag");
+    }
+
+    private static void frontmatterDoesNotPolluteHeadingsOrShiftTodoLineNumbers() {
+        String content = "---\n"
+                + "tags: [exam]\n"
+                + "---\n"
+                + "# Real Title\n"
+                + "- [ ] do it\n";
+        MarkdownNote note = new MarkdownParser().parse(Paths.get("n.md"), content);
+        TestSupport.assertEquals("Real Title", note.title());
+        TestSupport.assertEquals(1, note.headings().size());
+        TestSupport.assertEquals(1, note.todos().size());
+        TestSupport.assertEquals(5, note.todos().get(0).lineNumber());
+    }
+
+    private static void frontmatterAndInlineTagsBothLand() {
+        String content = "---\n"
+                + "tags: [exam]\n"
+                + "---\n"
+                + "Body with #summarize tag\n";
+        MarkdownNote note = new MarkdownParser().parse(Paths.get("n.md"), content);
+        TestSupport.assertTrue(note.hasTag("exam"), "frontmatter exam");
+        TestSupport.assertTrue(note.hasTag("summarize"), "inline summarize");
+    }
+
+    private static void unclosedFrontmatterIsTreatedAsBody() {
+        String content = "---\n"
+                + "tags: [exam]\n"
+                + "# Title\n";
+        MarkdownNote note = new MarkdownParser().parse(Paths.get("n.md"), content);
+        TestSupport.assertEquals(false, note.hasTag("exam"));
+        TestSupport.assertEquals(1, note.headings().size());
     }
 }
 
