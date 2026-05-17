@@ -6,6 +6,8 @@ import daisa.ai.AiResponse;
 import daisa.study.MarkdownNote;
 import daisa.study.StudyTask;
 import daisa.study.StudyTaskType;
+import daisa.vault.CourseResolver;
+import daisa.vault.CourseResolver.Course;
 import daisa.vault.MarkdownParser;
 import daisa.vault.StudyArtifactWriter;
 
@@ -14,35 +16,41 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class TaskOrchestrator {
-    private static final String TASKS_ARTIFACT_NAME = "DAISA Tasks.md";
-    private static final String SUMMARIES_ARTIFACT_NAME = "DAISA Summaries.md";
-
     private final AgentSupervisor supervisor;
     private final AiRouter aiRouter;
     private final StudyArtifactWriter artifactWriter;
     private final MarkdownParser markdownParser;
+    private final CourseResolver courseResolver;
 
-    public TaskOrchestrator(AgentSupervisor supervisor, AiRouter aiRouter, StudyArtifactWriter artifactWriter) {
-        this(supervisor, aiRouter, artifactWriter, new MarkdownParser());
+    public TaskOrchestrator(
+            AgentSupervisor supervisor,
+            AiRouter aiRouter,
+            StudyArtifactWriter artifactWriter,
+            CourseResolver courseResolver
+    ) {
+        this(supervisor, aiRouter, artifactWriter, new MarkdownParser(), courseResolver);
     }
 
     public TaskOrchestrator(
             AgentSupervisor supervisor,
             AiRouter aiRouter,
             StudyArtifactWriter artifactWriter,
-            MarkdownParser markdownParser
+            MarkdownParser markdownParser,
+            CourseResolver courseResolver
     ) {
         this.supervisor = Objects.requireNonNull(supervisor, "supervisor");
         this.aiRouter = Objects.requireNonNull(aiRouter, "aiRouter");
         this.artifactWriter = Objects.requireNonNull(artifactWriter, "artifactWriter");
         this.markdownParser = Objects.requireNonNull(markdownParser, "markdownParser");
+        this.courseResolver = Objects.requireNonNull(courseResolver, "courseResolver");
     }
 
     public void onMarkdownChanged(Path path) {
         try {
-            if (isGeneratedArtifact(path)) {
+            if (CourseResolver.isGeneratedArtifact(path)) {
                 return;
             }
             MarkdownNote note = markdownParser.parse(path, new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
@@ -53,9 +61,19 @@ public final class TaskOrchestrator {
     }
 
     public void handleNote(MarkdownNote note) {
-        if (isGeneratedArtifact(note.path())) {
+        if (CourseResolver.isGeneratedArtifact(note.path())) {
             return;
         }
+        // Notes outside the scope root, or inside the scope root but not
+        // under any recognized course, are silently ignored. Per-course
+        // scoping means a note has to have a course owner for its artifacts
+        // to land somewhere sensible.
+        Optional<Course> resolved = courseResolver.resolve(note.path());
+        if (!resolved.isPresent()) {
+            return;
+        }
+        Course course = resolved.get();
+
         supervisor.restartUnhealthyAgents();
 
         if (!note.todos().isEmpty()) {
@@ -66,7 +84,7 @@ public final class TaskOrchestrator {
                     true
             );
             supervisor.dispatch(new AgentMessage(task));
-            artifactWriter.writeTodos(note);
+            artifactWriter.writeTodos(course.tasksFile(), note);
         }
 
         if (note.hasTag("summarize") || note.hasTag("exam")) {
@@ -78,12 +96,7 @@ public final class TaskOrchestrator {
             );
             supervisor.dispatch(new AgentMessage(task));
             AiResponse response = aiRouter.complete(task);
-            artifactWriter.writeSummary(note, response);
+            artifactWriter.writeSummary(course.summariesFile(), note, response);
         }
-    }
-
-    private static boolean isGeneratedArtifact(Path path) {
-        String fileName = path.getFileName().toString();
-        return TASKS_ARTIFACT_NAME.equals(fileName) || SUMMARIES_ARTIFACT_NAME.equals(fileName);
     }
 }

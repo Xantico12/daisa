@@ -23,20 +23,18 @@ public final class StudyArtifactWriter {
         this.vaultRoot = Objects.requireNonNull(vaultRoot, "vaultRoot");
     }
 
-    public void writeSummary(MarkdownNote note, AiResponse response) {
-        Path output = vaultRoot.resolve("DAISA Summaries.md");
+    public void writeSummary(Path targetFile, MarkdownNote note, AiResponse response) {
         String sourceLink = toWikilink(note.path());
         String section = "## " + note.title() + "\n"
                 + "- Source: " + sourceLink + "\n"
                 + "- Engine: `" + response.engineType() + "`\n"
                 + "- Generated: " + TIMESTAMP.format(LocalDateTime.now()) + "\n\n"
                 + response.text() + "\n";
-        upsertSection(output, sourceLink, section);
+        upsertSection(targetFile, sourceLink, section);
     }
 
-    public void writeTodos(MarkdownNote note) {
+    public void writeTodos(Path tasksFile, MarkdownNote note) {
         String sourceLink = toWikilink(note.path());
-        Path tasksFile = vaultRoot.resolve("DAISA Tasks.md");
 
         List<TodoItem> openTodos = new ArrayList<>();
         for (TodoItem todo : note.todos()) {
