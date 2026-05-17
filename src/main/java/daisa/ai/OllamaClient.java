@@ -71,9 +71,12 @@ public final class OllamaClient implements AiClient {
     // Keeping it as a string template (with one escaped field) is clearer
     // than wrapping a single-call helper around a fake JSON object.
     static String buildRequestBody(String model, String prompt) {
+        // think:false skips visible chain-of-thought on thinking-capable models
+        // (e.g. qwen3.5) so summaries arrive in seconds instead of minutes.
+        // Non-thinking models silently ignore the field.
         return "{\"model\":\"" + escapeJsonString(model)
                 + "\",\"prompt\":\"" + escapeJsonString(prompt)
-                + "\",\"stream\":false}";
+                + "\",\"stream\":false,\"think\":false}";
     }
 
     // Escape a Java string into the contents of a JSON string literal.

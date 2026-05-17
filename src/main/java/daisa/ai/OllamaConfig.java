@@ -10,7 +10,7 @@ import java.util.Objects;
 public final class OllamaConfig {
     public static final String DEFAULT_BASE_URL = "http://localhost:11434";
     public static final String DEFAULT_MODEL = "llama3.2";
-    public static final int DEFAULT_TIMEOUT_SECONDS = 60;
+    public static final int DEFAULT_TIMEOUT_SECONDS = 180;
 
     private final URI baseUrl;
     private final String model;
