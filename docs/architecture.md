@@ -1,4 +1,4 @@
-# DAISA — Architecture
+# DAISA - Architecture
 
 DAISA (Distributed AI Study Assistant) is a Java backend that treats an
 Obsidian vault as a live knowledge base. The runtime watches markdown files,
@@ -6,12 +6,6 @@ parses them deterministically, routes study work to local or cloud AI
 through a privacy-aware router, runs the work under supervised agents,
 and writes per-course study artifacts back into the vault.
 
-The goals that drove the design — in this order — are **correctness**,
-**readability**, **testability**, **clear component boundaries**, and
-**operational visibility**. Performance is only addressed where a concrete
-bottleneck exists.
-
----
 
 ## Component diagram
 
@@ -36,7 +30,7 @@ bottleneck exists.
                         ▼            ▼
             ┌────────────────┐  ┌────────────────────┐
             │ MarkdownParser │  │   CourseResolver   │  Study/AU/S<n>/<COURSE>/...
-            │ (YAML + body)  │  │                    │  → Course(directory, name)
+            │ (YAML + body)  │  │                    │  -> Course(directory, name)
             └────────────────┘  └────────────────────┘
                         │
                         │ StudyTask
@@ -63,8 +57,8 @@ bottleneck exists.
                                               └─────────────────────┘
                                                           │
                                                           ▼
-                                              <COURSE>/<COURSE> — Tasks.md
-                                              <COURSE>/<COURSE> — Summaries.md
+                                              <COURSE>/<COURSE> - Tasks.md
+                                              <COURSE>/<COURSE> - Summaries.md
 ```
 
 ## Module boundaries
@@ -76,7 +70,7 @@ bottleneck exists.
 | `daisa.ai` | Stable `AiClient` interface + local/cloud implementations + config | http only |
 | `daisa.agent` | `Agent`, `AgentSupervisor`, `AgentMessage`, health/heartbeat | nothing else |
 | `daisa.study` | Plain domain types: `MarkdownNote`, `TodoItem`, `StudyTask`, `StudyTaskType` | nothing |
-| `daisa` | `App` entry point — wires everything from `main` | all of the above |
+| `daisa` | `App` entry point - wires everything from `main` | all of the above |
 
 The arrows in the diagram only flow downward and outward. The `study` and
 `agent` packages depend on no other package in the project, which keeps
@@ -94,7 +88,7 @@ The agent runtime uses an in-process queue (`AgentSupervisor` dispatches
 1. **Failure isolation is the goal, not multi-host scaling.** The
    distributed-systems concepts worth learning here are supervision,
    heartbeat, restart-unhealthy, queue-based decoupling, and backpressure
-   — all of which apply just as well in-process.
+   - all of which apply just as well in-process.
 2. **No serialization friction.** Messages are plain Java objects; refactoring
    the message envelope costs nothing.
 3. **Tests don't need a network.** A real `AgentSupervisor` is built in
@@ -102,7 +96,7 @@ The agent runtime uses an in-process queue (`AgentSupervisor` dispatches
    dispatch side is exercised, the loop is not, and the test stays fast.
 4. **Sockets remain a future option.** The `AgentMessage` boundary already
    makes it tractable to swap the in-process queue for a socket-based
-   transport when there's a concrete reason — none today.
+   transport when there's a concrete reason - none today.
 
 ### Interfaces around AI
 
@@ -132,7 +126,7 @@ The rules are deliberately small:
 - A task above the cloud-reasoning threshold goes to CLOUD.
 - Everything else stays LOCAL.
 
-The privacy override is the load-bearing rule — it's why the local engine
+The privacy override is the load-bearing rule - it's why the local engine
 exists at all. M9 will add a defensive `IllegalStateException` inside the
 cloud client to enforce the invariant at the boundary, not just in the
 router.
@@ -141,8 +135,8 @@ router.
 
 The orchestrator only acts on notes that resolve to a course under
 `Study/AU/S<n>/<COURSE>/`. Artifacts are written next to the course's notes
-as `<COURSE> — Tasks.md` and `<COURSE> — Summaries.md`. Notes outside the
-scope root or outside any recognized course are silently ignored — this is
+as `<COURSE> - Tasks.md` and `<COURSE> - Summaries.md`. Notes outside the
+scope root or outside any recognized course are silently ignored - this is
 preferable to a fallback artifact at vault root, because surprise files in
 unexpected places are worse than a silent no-op the operator can verify in
 the log. The loop guard recognizes generated files by filename suffix, not
@@ -165,7 +159,7 @@ The trade-off is intentional:
 - **Pro**: every line is readable end-to-end without checking a framework's
   behavior, the build is `javac @sources.txt`, and CI takes seconds.
 - **Con**: real cloud (M9, `OpenRouterClient`) needs to parse nested JSON
-  (`choices[0].message.content`) — that's the trigger to adopt Maven and
+  (`choices[0].message.content`) - that's the trigger to adopt Maven and
   swap in Jackson. PDF ingestion (M8) is the second trigger, since
   `PDFBox` has no stdlib substitute.
 
@@ -206,7 +200,7 @@ Mac-specific gotcha: Ollama on macOS binds to `127.0.0.1` by default, which
 the container can't reach via `host.docker.internal`. Start it with
 `OLLAMA_HOST=0.0.0.0 ollama serve` (or `launchctl setenv OLLAMA_HOST 0.0.0.0`
 before relaunching Ollama.app) so the container can connect. Verified
-end-to-end on Apple Silicon: build → run → host filesystem event → per-course
+end-to-end on Apple Silicon: build -> run -> host filesystem event -> per-course
 artifact written back, with a real `qwen3.5:9b` summary roundtripping through
 `host.docker.internal:11434`.
 

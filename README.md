@@ -1,4 +1,4 @@
-# DAISA — Distributed AI Study Assistant
+# DAISA - Distributed AI Study Assistant
 
 [![CI](https://github.com/Xantico12/daisa/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Xantico12/daisa/actions/workflows/ci.yml)
 
@@ -8,8 +8,8 @@ study work to local or cloud AI through a privacy-aware router, runs
 the work under supervised agents with heartbeat state, and writes
 per-course study artifacts back into the vault.
 
-Built as a backend-engineering learning project — Java, distributed-systems
-patterns, testing discipline — that I dogfood on my own university study
+Built as a backend-engineering learning project - Java, distributed-systems
+patterns, testing discipline - that I dogfood on my own university study
 vault. The architectural choices (custom test runner, hand-rolled JSON,
 no Maven/Gradle yet) are deliberate trade-offs documented in
 `docs/architecture.md`, not unfinished work.
@@ -56,7 +56,7 @@ AI route: LOCAL for SUMMARIZE_NOTE (short study task)
 ```
 
 A section from the artifact DAISA writes back next to the course's notes
-(`Study/AU/S2/PLA/PLA — Summaries.md`):
+(`Study/AU/S2/PLA/PLA - Summaries.md`):
 
 ````markdown
 ## Three Operations You Must Know
@@ -78,7 +78,7 @@ A section from the artifact DAISA writes back next to the course's notes
 
 Re-saving the source note replaces this section in place (idempotent upsert
 keyed by the `- Source: [[wikilink]]` marker). If Ollama is unreachable,
-the section is still written — its body just contains
+the section is still written - its body just contains
 `[Ollama unavailable: <reason>]` so the failure is visible in the vault,
 not just in logs.
 
@@ -89,7 +89,7 @@ not just in logs.
 ### Requirements
 
 - **Java 17+** (Temurin 17 in CI)
-- **[Ollama](https://ollama.com)** for local AI (optional — pipeline degrades gracefully without it)
+- **[Ollama](https://ollama.com)** for local AI (optional - pipeline degrades gracefully without it)
 - No Maven, no Gradle, no third-party JARs
 
 ### Build and test
@@ -100,7 +100,7 @@ not just in logs.
 
 Builds `src/main/java` + `src/test/java` with one `javac` invocation, then
 runs the custom `daisa.TestRunner`. All tests use real collaborators and
-hand-built test doubles — no JUnit, no mock framework.
+hand-built test doubles - no JUnit, no mock framework.
 
 ### Run
 
@@ -113,7 +113,7 @@ export DAISA_OLLAMA_MODEL=qwen3.5:9b   # overrides the llama3.2 default
 
 The orchestrator only acts on notes under `Study/AU/S<n>/<COURSE>/` (the
 default scope). Per-course artifacts are written as
-`<COURSE> — Tasks.md` and `<COURSE> — Summaries.md` next to the course's
+`<COURSE> - Tasks.md` and `<COURSE> - Summaries.md` next to the course's
 notes. To override the scope, set `DAISA_SCOPE_ROOT=Path/Relative/To/Vault`.
 
 ### Docker
@@ -155,7 +155,7 @@ inline `#exam` or YAML frontmatter `tags: [exam]`:
 
 | Tag(s) | Task | Notes |
 |---|---|---|
-| Any unchecked `- [ ] todo` line | `EXTRACT_TODOS` | Deterministic — no AI call |
+| Any unchecked `- [ ] todo` line | `EXTRACT_TODOS` | Deterministic - no AI call |
 | `#exam` or `#summarize` | `SUMMARIZE_NOTE` | Routed through `AiRouter` to LOCAL or CLOUD |
 | `#private` (with one of the above) | Same task type, **forced LOCAL** | Privacy override beats length policy |
 
@@ -165,18 +165,18 @@ inline `#exam` or YAML frontmatter `tags: [exam]`:
 
 ```
 src/main/java/daisa/
-  App.java                  ← composition root
-  agent/                    ← AgentSupervisor, Agent, AgentMessage, AgentHealth
-  ai/                       ← AiClient interface, OllamaClient, mocks, OllamaConfig
-  orchestration/            ← AiRouter, TaskOrchestrator, RoutingDecision
-  study/                    ← Plain domain types (MarkdownNote, StudyTask, …)
-  vault/                    ← VaultWatcher, MarkdownParser, CourseResolver, StudyArtifactWriter
+  App.java                  <- composition root
+  agent/                    <- AgentSupervisor, Agent, AgentMessage, AgentHealth
+  ai/                       <- AiClient interface, OllamaClient, mocks, OllamaConfig
+  orchestration/            <- AiRouter, TaskOrchestrator, RoutingDecision
+  study/                    <- Plain domain types (MarkdownNote, StudyTask, …)
+  vault/                    <- VaultWatcher, MarkdownParser, CourseResolver, StudyArtifactWriter
 
-src/test/java/daisa/        ← Custom TestRunner + test doubles, one *Test.java per unit
-scripts/                    ← test.sh, run.sh (javac-driven, no build system)
-docs/architecture.md        ← Component diagram, design decisions, failure modes
-Dockerfile                  ← Multi-stage JDK→JRE build
-.github/workflows/ci.yml    ← Test on every push to main/dev
+src/test/java/daisa/        <- Custom TestRunner + test doubles, one *Test.java per unit
+scripts/                    <- test.sh, run.sh (javac-driven, no build system)
+docs/architecture.md        <- Component diagram, design decisions, failure modes
+Dockerfile                  <- Multi-stage JDK→JRE build
+.github/workflows/ci.yml    <- Test on every push to main/dev
 ```
 
 ---
@@ -185,16 +185,16 @@ Dockerfile                  ← Multi-stage JDK→JRE build
 
 | Milestone | Status |
 |---|---|
-| M1 — Deterministic vault layer (parser, watcher) | done |
-| M2 — Agent runtime + AI router | done |
-| M3 — Idempotent artifact writes | done |
-| M4 — Real `OllamaClient` (local AI) | done |
-| M5 — Orchestrator + watcher tests | done |
-| M6 — Per-course scoping | done |
-| M7 — Architecture doc + Dockerfile + CI | done |
-| M8 — Text-based PDF ingestion | deferred (requires Maven + PDFBox) |
-| M9 — `OpenRouterClient` + secrets | deferred (requires Maven + Jackson) |
+| M1 - Deterministic vault layer (parser, watcher) | done |
+| M2 - Agent runtime + AI router | done |
+| M3 - Idempotent artifact writes | done |
+| M4 - Real `OllamaClient` (local AI) | done |
+| M5 - Orchestrator + watcher tests | done |
+| M6 - Per-course scoping | done |
+| M7 - Architecture doc + Dockerfile + CI | done |
+| M8 - Text-based PDF ingestion | deferred (requires Maven + PDFBox) |
+| M9 - `OpenRouterClient` + secrets | deferred (requires Maven + Jackson) |
 
-M8 and M9 are deferred deliberately, not abandoned — both would force adopting
+M8 and M9 are deferred deliberately, not abandoned - both would force adopting
 Maven (PDFBox for PDF text extraction; Jackson for nested OpenRouter response
 shapes). That trade-off is documented in [`docs/architecture.md`](docs/architecture.md#dependency-light-by-default).
