@@ -195,6 +195,21 @@ force this trade-off; they will land together with the build system change.
 | `DAISA_OLLAMA_TIMEOUT_SECONDS` | `180` | Per-request HTTP timeout |
 | `DAISA_SCOPE_ROOT` | `Study/AU` | Vault-relative path; events outside are ignored |
 
+## Running under Docker
+
+The Dockerfile is a two-stage build: Temurin 17 JDK compiles the sources
+with the same `javac @sources.txt` flow the host scripts use, then the
+runtime stage copies only the compiled classes into a JRE image
+(no compiler, smaller surface). The vault mounts at `/vault`.
+
+Mac-specific gotcha: Ollama on macOS binds to `127.0.0.1` by default, which
+the container can't reach via `host.docker.internal`. Start it with
+`OLLAMA_HOST=0.0.0.0 ollama serve` (or `launchctl setenv OLLAMA_HOST 0.0.0.0`
+before relaunching Ollama.app) so the container can connect. Verified
+end-to-end on Apple Silicon: build → run → host filesystem event → per-course
+artifact written back, with a real `qwen3.5:9b` summary roundtripping through
+`host.docker.internal:11434`.
+
 ---
 
 ## What's intentionally not here

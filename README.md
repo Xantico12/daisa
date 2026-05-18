@@ -77,6 +77,15 @@ docker run --rm -v "$HOME/Obsidian:/vault" \
   daisa
 ```
 
+On macOS, start Ollama on all interfaces first so the container can reach it:
+
+```sh
+OLLAMA_HOST=0.0.0.0 ollama serve
+```
+
+(Default `127.0.0.1` is unreachable from inside the container even via
+`host.docker.internal`.)
+
 ---
 
 ## Configuration
