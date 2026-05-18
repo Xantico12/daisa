@@ -2,9 +2,11 @@ package daisa;
 
 import daisa.agent.AgentSupervisor;
 import daisa.ai.MockCloudAiClient;
-import daisa.ai.MockLocalAiClient;
+import daisa.ai.OllamaClient;
+import daisa.ai.OllamaConfig;
 import daisa.orchestration.AiRouter;
 import daisa.orchestration.TaskOrchestrator;
+import daisa.vault.CourseResolver;
 import daisa.vault.StudyArtifactWriter;
 import daisa.vault.VaultWatcher;
 
@@ -23,9 +25,13 @@ public final class App {
 
         Path vaultPath = Paths.get(args[0]).toAbsolutePath().normalize();
         AgentSupervisor supervisor = AgentSupervisor.withDefaultAgents();
-        AiRouter router = new AiRouter(new MockLocalAiClient(), new MockCloudAiClient());
+        OllamaConfig ollamaConfig = OllamaConfig.fromEnv();
+        System.out.println("Local AI: Ollama at " + ollamaConfig.generateUrl() + " (model: " + ollamaConfig.model() + ")");
+        AiRouter router = new AiRouter(new OllamaClient(ollamaConfig), new MockCloudAiClient());
         StudyArtifactWriter writer = new StudyArtifactWriter(vaultPath);
-        TaskOrchestrator orchestrator = new TaskOrchestrator(supervisor, router, writer);
+        CourseResolver courseResolver = CourseResolver.fromEnv(vaultPath);
+        System.out.println("Scope root: " + courseResolver.scopeRoot());
+        TaskOrchestrator orchestrator = new TaskOrchestrator(supervisor, router, writer, courseResolver);
 
         supervisor.start();
         Runtime.getRuntime().addShutdownHook(new Thread(supervisor::stop, "daisa-shutdown"));
@@ -38,4 +44,3 @@ public final class App {
         }
     }
 }
-
