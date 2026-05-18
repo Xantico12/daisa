@@ -8,10 +8,15 @@ study work to local or cloud AI through a privacy-aware router, runs
 the work under supervised agents with heartbeat state, and writes
 per-course study artifacts back into the vault.
 
+Built as a backend-engineering learning project — Java, distributed-systems
+patterns, testing discipline — that I dogfood on my own university study
+vault. The architectural choices (custom test runner, hand-rolled JSON,
+no Maven/Gradle yet) are deliberate trade-offs documented in
+`docs/architecture.md`, not unfinished work.
+
 The project is built dependency-light on the Java standard library
-(`java.nio`, `java.net.http`, `java.util.concurrent`) with a custom
-test runner. Every component is independently testable and replaceable
-behind a small interface.
+(`java.nio`, `java.net.http`, `java.util.concurrent`). Every component
+is independently testable and replaceable behind a small interface.
 
 > **Architecture & design decisions:** [`docs/architecture.md`](docs/architecture.md)
 
@@ -35,11 +40,55 @@ behind a small interface.
 
 ---
 
+## What it looks like in practice
+
+A real run: save a `#exam`-tagged note in the vault, watch the orchestrator
+route it.
+
+```
+$ ./scripts/run.sh ~/Obsidian
+Local AI: Ollama at http://localhost:11434/api/generate (model: qwen3.5:9b)
+Scope root: /Users/me/Obsidian/Study/AU
+DAISA watching vault: /Users/me/Obsidian
+Agent markdown handled EXTRACT_TODOS for .../Study/AU/S2/PLA/vectors.md
+Agent study handled SUMMARIZE_NOTE for .../Study/AU/S2/PLA/vectors.md
+AI route: LOCAL for SUMMARIZE_NOTE (short study task)
+```
+
+A section from the artifact DAISA writes back next to the course's notes
+(`Study/AU/S2/PLA/PLA — Summaries.md`):
+
+````markdown
+## Three Operations You Must Know
+- Source: [[Study/AU/S2/PLA/vectors]]
+- Engine: `LOCAL`
+- Generated: 2026-05-17 23:14
+
+# Quick Revision: Vector Operations in ℝⁿ
+
+## 1. The "Big Three" Operations
+1. **Norm**: Measures length (‖v‖).
+2. **Unit Vector**: Normalizes direction to length 1 (v̂).
+3. **Dot Product**: Measures projection/correlation with another vector (v · w).
+
+### A. The Norm (Euclidean / L2)
+‖v‖ = √(v₁² + v₂² + … + vₙ²)
+…
+````
+
+Re-saving the source note replaces this section in place (idempotent upsert
+keyed by the `- Source: [[wikilink]]` marker). If Ollama is unreachable,
+the section is still written — its body just contains
+`[Ollama unavailable: <reason>]` so the failure is visible in the vault,
+not just in logs.
+
+---
+
 ## Quick start
 
 ### Requirements
 
-- **Java 17+** (works on 11+ for the core, CI uses Temurin 17)
+- **Java 17+** (Temurin 17 in CI)
 - **[Ollama](https://ollama.com)** for local AI (optional — pipeline degrades gracefully without it)
 - No Maven, no Gradle, no third-party JARs
 
@@ -57,8 +106,8 @@ hand-built test doubles — no JUnit, no mock framework.
 
 ```sh
 ollama serve &                     # start the Ollama daemon if not running
-ollama pull qwen3.5:9b             # any chat model works; this one is the recommended default
-export DAISA_OLLAMA_MODEL=qwen3.5:9b
+ollama pull qwen3.5:9b             # any chat model works; this is what I run day-to-day
+export DAISA_OLLAMA_MODEL=qwen3.5:9b   # overrides the llama3.2 default
 ./scripts/run.sh /path/to/obsidian-vault
 ```
 
@@ -146,5 +195,6 @@ Dockerfile                  ← Multi-stage JDK→JRE build
 | M8 — Text-based PDF ingestion | deferred (requires Maven + PDFBox) |
 | M9 — `OpenRouterClient` + secrets | deferred (requires Maven + Jackson) |
 
-See [the vault project plan](../the-vault/Projects/DAISA/Project%20Plan.md) for the
-current source-of-truth status and session log.
+M8 and M9 are deferred deliberately, not abandoned — both would force adopting
+Maven (PDFBox for PDF text extraction; Jackson for nested OpenRouter response
+shapes). That trade-off is documented in [`docs/architecture.md`](docs/architecture.md#dependency-light-by-default).
